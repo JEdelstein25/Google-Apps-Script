@@ -1,0 +1,135 @@
+function onEdit(e) {
+ var sheetName = e.source.getSheetName()
+ var row = e.range.rowStart
+ var column = e.range.columnStart
+ var ss = SpreadsheetApp.getActiveSpreadsheet()
+ if(sheetName == "2021 Active Contracts") {
+   if(column < 4 || column == 17) {
+     var newList = dropDown(column, e.value)
+     var sheet = ss.getSheetByName(sheetName)
+     sheet.getRange(row, column + 1, 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(newList))
+   }
+   else if(column == 8) {
+     if(e.value == "Renew") {
+       var activeSheet = ss.getSheetByName("2021 Active Contracts")
+       var dataRange = activeSheet.getRange(row, 5)
+       var ui = SpreadsheetApp.getUi();
+       var response = ui.alert(`Are you renewing ${dataRange.getValue()} 1 Year or More?`, ui.ButtonSet.YES_NO);
+       var year = activeSheet.getRange(row, 11).getValue()
+       if(response == ui.Button.YES) {
+       var secondresponse = ui.prompt("How Many Years Are you Renewing For?")
+       var add = parseInt(secondresponse.getResponseText())
+       if(secondresponse.getSelectedButton() == ui.Button.OK) {
+         Logger.log(`Years: ${add}`)
+         archiveContract(row)
+         activeSheet.getRange(row, 22, 1, 5).clearContent()
+         activeSheet.getRange(row, 11).setValue(year + add)
+         var date = activeSheet.getRange(row, 9).getValue()
+         date.setFullYear(year + add)
+         activeSheet.getRange(row, 9).setValue(date)
+       }
+     }
+     else if(response == ui.Button.NO) {
+       var monthsResponse = ui.prompt("How Many Months Are you Renewing For?")
+       var add = parseInt(monthsResponse.getResponseText())
+       if(monthsResponse.getSelectedButton() == ui.Button.OK) {
+         var date = activeSheet.getRange(row, 9).getValue()
+         var months = date.getMonth()
+         if((months + add) > 11) {
+           activeSheet.getRange(row, 11).setValue(year + 1)
+           date.setFullYear(year + 1)
+           date.setMonth((months + add)-12)
+         }
+         else {
+           date.setMonth(months + add)
+         }
+         archiveContract(row)
+         activeSheet.getRange(row, 22, 1, 5).clearContent()
+         var quarter = parseInt((months+add)/3) + 1
+         activeSheet.getRange(row, 10).setValue(`Q${quarter}`)
+         activeSheet.getRange(row, 9).setValue(date)
+       }
+     }
+     }
+     else if(e.value == "Terminate/Not Renew") {
+       var data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("2021 Active Contracts").getRange(row, 1, 1, 18).getValues()
+       var newData = [data[0][12], data[0][16], data[0][17], data[0][0], data[0][3], data[0][5], data[0][6], data[0][8], data[0][9], data[0][10], data[0][11], data[0][14], data[0][15]]
+       var archiveSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Archive of Renewal Opportunities")
+       archiveSheet.appendRow(newData)
+       archiveSheet.sort(8, true)
+     }
+   }
+ 
+   //Copy data from Renewal Query to Renewal Opportunities
+   var queriedData = ss.getSheetByName("Renewal Opportunities (QUERY)").getDataRange().getValues()
+   var queriedRange = ss.getSheetByName("Renewal Opportunities (QUERY)").getRange(1, 1, queriedData.length, 27)
+   var destSheet = ss.getSheetByName("Renewal Opportunities").getRange(1, 1, queriedData.length, 27)
+   var sheet = ss.getSheetByName("Renewal Opportunities")
+   destSheet.clearContent()
+   destSheet.setValues(queriedRange.getValues())
+   sheet.sort(8, true)
+ }
+ else if(sheetName == "Renewal Opportunities") {
+   if(column > 11) {
+     var contractData = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("2021 Active Contracts").getDataRange().getValues()
+     var renewal = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Renewal Opportunities")
+     var vendor = renewal.getRange(row, 6).getValue()
+     var dateString = renewal.getRange(row, 8).getValue().toString()
+     var values = renewal.getRange(row, 14, 1, 5).getValues()
+     var i = 1
+     do {
+       i+=1
+       Logger.log(i)
+       Logger.log(`Compare: ${contractData[i][4]} and ${vendor}`)
+       Logger.log(`Compare: ${contractData[i][8].toString()} and ${dateString}`)
+     } while (!(contractData[i][4] == vendor && contractData[i][8].toString() == dateString))
+     Logger.log(i)
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("2021 Active Contracts").getRange(i+1, 22, 1, 5).setValues(values)
+   }
+ }
+}
+function dropDown(column, value) {
+ var data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Spend Categories").getDataRange().getValues()
+ var data2 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Org Chart").getDataRange().getValues()
+ var array = []
+ if(column < 4) {
+   var values = data.map(function(value, index) {return value[column-1]})
+   var newData = []
+   for(var i = 1; i < data.length; i++) {
+     if(values[i] == value) {
+       newData.push(data[i][column])
+     }
+   }
+   var uniqueVal = [...new Set(newData)]
+   return uniqueVal
+ }
+ else if(column == 17) {
+   var data = data2.map(function(value, index) { return value[0]})
+   Logger.log(data)
+   var newData = []
+   for(var i = 0; i < data.length; i++) {
+     if(data[i] == value) {
+       newData.push(data2[i][1])
+     }
+   }
+   const uniqueVal = [...new Set(newData)]
+   return uniqueVal
+ }
+}
+function archiveContract(row) {
+ var contractData = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("2021 Active Contracts").getDataRange().getValues()
+ var renewal = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Renewal Opportunities")
+ var renewalOpportunities = renewal.getDataRange().getValues()
+ var archiveSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Archive of Renewal Opportunities")
+ var range = [0, 0, 0, 0, 0, 0]
+ Logger.log(`Length: ${renewalOpportunities.length}`)
+ for(var i = 0; i < renewalOpportunities.length; i++) {
+   if((renewalOpportunities[i][5] == contractData[row-1][4]) && (renewalOpportunities[i][7].toString() == contractData[row-1][8].toString())) {
+     range = renewalOpportunities[i]
+     break
+   }
+ }
+ if(range != []) {archiveSheet.appendRow(range)}
+ archiveSheet.sort(8, true)
+ 
+}
