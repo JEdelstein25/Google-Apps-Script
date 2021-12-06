@@ -1,14 +1,17 @@
 function onEdit(e) {
+//Retrieve Data From Spreadsheet
  var sheetName = e.source.getSheetName()
  var row = e.range.rowStart
  var column = e.range.columnStart
  var ss = SpreadsheetApp.getActiveSpreadsheet()
  if(sheetName == "2021 Active Contracts") {
+ // Add DropDown Values for Columns 1-4, 17
    if(column < 4 || column == 17) {
      var newList = dropDown(column, e.value)
      var sheet = ss.getSheetByName(sheetName)
      sheet.getRange(row, column + 1, 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(newList))
    }
+   // Trigger from Column 8 DropDown
    else if(column == 8) {
      if(e.value == "Renew") {
        var activeSheet = ss.getSheetByName("2021 Active Contracts")
@@ -88,6 +91,7 @@ function onEdit(e) {
    }
  }
 }
+// Gets Values for Dropdowns based on previous cell value
 function dropDown(column, value) {
  var data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Spend Categories").getDataRange().getValues()
  var data2 = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Org Chart").getDataRange().getValues()
@@ -116,6 +120,7 @@ function dropDown(column, value) {
    return uniqueVal
  }
 }
+// moves selected row to the archived sheet and resets values in the original database
 function archiveContract(row) {
  var contractData = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("2021 Active Contracts").getDataRange().getValues()
  var renewal = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Renewal Opportunities")
